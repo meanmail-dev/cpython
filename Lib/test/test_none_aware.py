@@ -58,18 +58,27 @@ class NoneAwareTests(unittest.TestCase):
         explicit = namespace["explicit"]
         self.assertIn(
             "LOAD_FAST_LOAD_FAST",
-            [instruction.opname for instruction in dis.get_instructions(optional)],
+            [
+                instruction.opname
+                for instruction in dis.get_instructions(optional)
+            ],
         )
         self.assertNotIn(
             "COPY",
-            [instruction.opname for instruction in dis.get_instructions(optional)],
+            [
+                instruction.opname
+                for instruction in dis.get_instructions(optional)
+            ],
         )
         for value in (None, SimpleNamespace(name="Ada")):
             self.assertEqual(optional(value), explicit(value))
 
     def test_traced_local_rebinding_preserves_operand(self) -> None:
         namespace: dict[str, Any] = {"Any": Any}
-        exec("def access(value: Any) -> Any:\n    return value?.name\n", namespace)
+        exec(
+            "def access(value: Any) -> Any:\n    return value?.name\n",
+            namespace,
+        )
         access = namespace["access"]
         check_offset = next(
             instruction.offset
@@ -102,9 +111,16 @@ class NoneAwareTests(unittest.TestCase):
         )
         access = namespace["access"]
         self.assertIn(
-            "COPY", [instruction.opname for instruction in dis.get_instructions(access)]
+            "COPY",
+            [
+                instruction.opname
+                for instruction in dis.get_instructions(access)
+            ],
         )
-        for value, expected in ((None, None), (SimpleNamespace(name="Ada"), "Ada")):
+        for value, expected in (
+            (None, None),
+            (SimpleNamespace(name="Ada"), "Ada"),
+        ):
             self.assertEqual(access(*([None] * 16), value), expected)
 
     def test_local_access_in_expression_and_chain(self) -> None:
