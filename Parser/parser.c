@@ -14844,7 +14844,7 @@ await_primary_rule(Parser *p)
             UNUSED(_end_lineno); // Only used by EXTRA macro
             int _end_col_offset = _token->end_col_offset;
             UNUSED(_end_col_offset); // Only used by EXTRA macro
-            _res = CHECK_VERSION ( expr_ty , 5 , "Await expressions are" , _PyAST_Await ( a , EXTRA ) );
+            _res = CHECK_VERSION ( expr_ty , 5 , "Await expressions are" , _PyAST_Await ( CHECK ( expr_ty , _PyPegen_optional_chain ( p , a ) ) , EXTRA ) );
             if ((_res == NULL || p->error_indicator) && PyErr_Occurred()) {
                 p->error_indicator = 1;
                 p->level--;
@@ -14862,13 +14862,18 @@ await_primary_rule(Parser *p)
             return NULL;
         }
         D(fprintf(stderr, "%*c> await_primary[%d-%d]: %s\n", p->level, ' ', _mark, p->mark, "primary"));
-        expr_ty primary_var;
+        expr_ty a;
         if (
-            (primary_var = primary_rule(p))  // primary
+            (a = primary_rule(p))  // primary
         )
         {
             D(fprintf(stderr, "%*c+ await_primary[%d-%d]: %s succeeded!\n", p->level, ' ', _mark, p->mark, "primary"));
-            _res = primary_var;
+            _res = _PyPegen_optional_chain ( p , a );
+            if ((_res == NULL || p->error_indicator) && PyErr_Occurred()) {
+                p->error_indicator = 1;
+                p->level--;
+                return NULL;
+            }
             goto done;
         }
         p->mark = _mark;
@@ -14884,6 +14889,7 @@ await_primary_rule(Parser *p)
 
 // Left-recursive
 // primary:
+//     | primary '?.' NAME
 //     | primary '.' NAME
 //     | primary genexp
 //     | primary '(' arguments? ')'
@@ -14945,6 +14951,45 @@ primary_raw(Parser *p)
     UNUSED(_start_lineno); // Only used by EXTRA macro
     int _start_col_offset = p->tokens[_mark]->col_offset;
     UNUSED(_start_col_offset); // Only used by EXTRA macro
+    { // primary '?.' NAME
+        if (p->error_indicator) {
+            p->level--;
+            return NULL;
+        }
+        D(fprintf(stderr, "%*c> primary[%d-%d]: %s\n", p->level, ' ', _mark, p->mark, "primary '?.' NAME"));
+        Token * _literal;
+        expr_ty a;
+        expr_ty b;
+        if (
+            (a = primary_rule(p))  // primary
+            &&
+            (_literal = _PyPegen_expect_token(p, 55))  // token='?.'
+            &&
+            (b = _PyPegen_name_token(p))  // NAME
+        )
+        {
+            D(fprintf(stderr, "%*c+ primary[%d-%d]: %s succeeded!\n", p->level, ' ', _mark, p->mark, "primary '?.' NAME"));
+            Token *_token = _PyPegen_get_last_nonnwhitespace_token(p);
+            if (_token == NULL) {
+                p->level--;
+                return NULL;
+            }
+            int _end_lineno = _token->end_lineno;
+            UNUSED(_end_lineno); // Only used by EXTRA macro
+            int _end_col_offset = _token->end_col_offset;
+            UNUSED(_end_col_offset); // Only used by EXTRA macro
+            _res = _PyAST_NoneAwareAttribute ( a , b -> v . Name . id , EXTRA );
+            if ((_res == NULL || p->error_indicator) && PyErr_Occurred()) {
+                p->error_indicator = 1;
+                p->level--;
+                return NULL;
+            }
+            goto done;
+        }
+        p->mark = _mark;
+        D(fprintf(stderr, "%*c%s primary[%d-%d]: %s failed!\n", p->level, ' ',
+                  p->error_indicator ? "ERROR!" : "-", _mark, p->mark, "primary '?.' NAME"));
+    }
     { // primary '.' NAME
         if (p->error_indicator) {
             p->level--;

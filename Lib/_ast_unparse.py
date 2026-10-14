@@ -919,6 +919,16 @@ class Unparser(NodeVisitor):
             s = f" {operator} "
             self.interleave(lambda: self.write(s), increasing_level_traverse, node.values)
 
+    def visit_NoneAwareAttribute(self, node: NoneAwareAttribute) -> None:
+        self.set_precedence(_Precedence.ATOM, node.value)
+        self.traverse(node.value)
+        self.write("?.")
+        self.write(node.attr)
+
+    def visit_OptionalChain(self, node: OptionalChain) -> None:
+        with self.delimit("(", ")"):
+            self.traverse(node.value)
+
     def visit_Attribute(self, node):
         self.set_precedence(_Precedence.ATOM, node.value)
         self.traverse(node.value)

@@ -370,6 +370,7 @@ ResultTokenWithMetadata *_PyPegen_setup_full_format_spec(Parser *, Token *, asdl
 mod_ty _PyPegen_make_module(Parser *, asdl_stmt_seq *);
 void *_PyPegen_arguments_parsing_error(Parser *, expr_ty);
 expr_ty _PyPegen_get_last_comprehension_item(comprehension_ty comprehension);
+expr_ty _PyPegen_optional_chain(Parser *p, expr_ty value);
 void *_PyPegen_nonparen_genexp_in_call(Parser *p, expr_ty args, asdl_comprehension_seq *comprehensions);
 stmt_ty _PyPegen_checked_from_import(Parser *p, asdl_seq *dots, expr_ty module_name,
                                      asdl_alias_seq *names, expr_ty lazy_token, int lineno,

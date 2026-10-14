@@ -992,6 +992,15 @@ append_ast_expr(PyUnicodeWriter *writer, expr_ty e, int level)
     /* The following exprs can be assignment targets. */
     case Attribute_kind:
         return append_ast_attribute(writer, e);
+    case NoneAwareAttribute_kind:
+        APPEND_EXPR(e->v.NoneAwareAttribute.value, PR_ATOM);
+        APPEND_STR("?.");
+        return PyUnicodeWriter_WriteStr(writer, e->v.NoneAwareAttribute.attr);
+    case OptionalChain_kind:
+        APPEND_CHAR('(');
+        APPEND_EXPR(e->v.OptionalChain.value, PR_TEST);
+        APPEND_CHAR(')');
+        return 0;
     case Subscript_kind:
         return append_ast_subscript(writer, e);
     case Starred_kind:
