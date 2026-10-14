@@ -129,6 +129,7 @@ void _PyAST_Fini(PyInterpreterState *interp)
     Py_CLEAR(state->Mult_type);
     Py_CLEAR(state->Name_type);
     Py_CLEAR(state->NamedExpr_type);
+    Py_CLEAR(state->NoneAwareAttribute_type);
     Py_CLEAR(state->Nonlocal_type);
     Py_CLEAR(state->NotEq_singleton);
     Py_CLEAR(state->NotEq_type);
@@ -136,6 +137,7 @@ void _PyAST_Fini(PyInterpreterState *interp)
     Py_CLEAR(state->NotIn_type);
     Py_CLEAR(state->Not_singleton);
     Py_CLEAR(state->Not_type);
+    Py_CLEAR(state->OptionalChain_type);
     Py_CLEAR(state->Or_singleton);
     Py_CLEAR(state->Or_type);
     Py_CLEAR(state->ParamSpec_type);
@@ -643,6 +645,13 @@ static const char * const TemplateStr_fields[]={
 static const char * const Constant_fields[]={
     "value",
     "kind",
+};
+static const char * const NoneAwareAttribute_fields[]={
+    "value",
+    "attr",
+};
+static const char * const OptionalChain_fields[]={
+    "value",
 };
 static const char * const Attribute_fields[]={
     "value",
@@ -3393,6 +3402,71 @@ add_ast_annotations(struct ast_state *state)
         return 0;
     }
     Py_DECREF(Constant_annotations);
+    PyObject *NoneAwareAttribute_annotations = PyDict_New();
+    if (!NoneAwareAttribute_annotations) return 0;
+    {
+        PyObject *type = state->expr_type;
+        Py_INCREF(type);
+        cond = PyDict_SetItemString(NoneAwareAttribute_annotations, "value",
+                                    type) == 0;
+        Py_DECREF(type);
+        if (!cond) {
+            Py_DECREF(NoneAwareAttribute_annotations);
+            return 0;
+        }
+    }
+    {
+        PyObject *type = (PyObject *)&PyUnicode_Type;
+        Py_INCREF(type);
+        cond = PyDict_SetItemString(NoneAwareAttribute_annotations, "attr",
+                                    type) == 0;
+        Py_DECREF(type);
+        if (!cond) {
+            Py_DECREF(NoneAwareAttribute_annotations);
+            return 0;
+        }
+    }
+    cond = PyObject_SetAttrString(state->NoneAwareAttribute_type,
+                                  "_field_types",
+                                  NoneAwareAttribute_annotations) == 0;
+    if (!cond) {
+        Py_DECREF(NoneAwareAttribute_annotations);
+        return 0;
+    }
+    cond = PyObject_SetAttrString(state->NoneAwareAttribute_type,
+                                  "__annotations__",
+                                  NoneAwareAttribute_annotations) == 0;
+    if (!cond) {
+        Py_DECREF(NoneAwareAttribute_annotations);
+        return 0;
+    }
+    Py_DECREF(NoneAwareAttribute_annotations);
+    PyObject *OptionalChain_annotations = PyDict_New();
+    if (!OptionalChain_annotations) return 0;
+    {
+        PyObject *type = state->expr_type;
+        Py_INCREF(type);
+        cond = PyDict_SetItemString(OptionalChain_annotations, "value", type)
+                                    == 0;
+        Py_DECREF(type);
+        if (!cond) {
+            Py_DECREF(OptionalChain_annotations);
+            return 0;
+        }
+    }
+    cond = PyObject_SetAttrString(state->OptionalChain_type, "_field_types",
+                                  OptionalChain_annotations) == 0;
+    if (!cond) {
+        Py_DECREF(OptionalChain_annotations);
+        return 0;
+    }
+    cond = PyObject_SetAttrString(state->OptionalChain_type, "__annotations__",
+                                  OptionalChain_annotations) == 0;
+    if (!cond) {
+        Py_DECREF(OptionalChain_annotations);
+        return 0;
+    }
+    Py_DECREF(OptionalChain_annotations);
     PyObject *Attribute_annotations = PyDict_New();
     if (!Attribute_annotations) return 0;
     {
@@ -6361,6 +6435,8 @@ init_types(void *arg)
         "     | JoinedStr(expr* values)\n"
         "     | TemplateStr(expr* values)\n"
         "     | Constant(constant value, string? kind)\n"
+        "     | NoneAwareAttribute(expr value, identifier attr)\n"
+        "     | OptionalChain(expr value)\n"
         "     | Attribute(expr value, identifier attr, expr_context ctx)\n"
         "     | Subscript(expr value, expr slice, expr_context ctx)\n"
         "     | Starred(expr value, expr_context ctx)\n"
@@ -6479,6 +6555,16 @@ init_types(void *arg)
     if (!state->Constant_type) return -1;
     if (PyObject_SetAttr(state->Constant_type, state->kind, Py_None) == -1)
         return -1;
+    state->NoneAwareAttribute_type = make_type(state, "NoneAwareAttribute",
+                                               state->expr_type,
+                                               NoneAwareAttribute_fields, 2,
+        "NoneAwareAttribute(expr value, identifier attr)");
+    if (!state->NoneAwareAttribute_type) return -1;
+    state->OptionalChain_type = make_type(state, "OptionalChain",
+                                          state->expr_type,
+                                          OptionalChain_fields, 1,
+        "OptionalChain(expr value)");
+    if (!state->OptionalChain_type) return -1;
     state->Attribute_type = make_type(state, "Attribute", state->expr_type,
                                       Attribute_fields, 3,
         "Attribute(expr value, identifier attr, expr_context ctx)");
@@ -8244,6 +8330,57 @@ _PyAST_Constant(constant value, string kind, int lineno, int col_offset, int
 }
 
 expr_ty
+_PyAST_NoneAwareAttribute(expr_ty value, identifier attr, int lineno, int
+                          col_offset, int end_lineno, int end_col_offset,
+                          PyArena *arena)
+{
+    expr_ty p;
+    if (!value) {
+        PyErr_SetString(PyExc_ValueError,
+                        "field 'value' is required for NoneAwareAttribute");
+        return NULL;
+    }
+    if (!attr) {
+        PyErr_SetString(PyExc_ValueError,
+                        "field 'attr' is required for NoneAwareAttribute");
+        return NULL;
+    }
+    p = (expr_ty)_PyArena_Malloc(arena, sizeof(*p));
+    if (!p)
+        return NULL;
+    p->kind = NoneAwareAttribute_kind;
+    p->v.NoneAwareAttribute.value = value;
+    p->v.NoneAwareAttribute.attr = attr;
+    p->lineno = lineno;
+    p->col_offset = col_offset;
+    p->end_lineno = end_lineno;
+    p->end_col_offset = end_col_offset;
+    return p;
+}
+
+expr_ty
+_PyAST_OptionalChain(expr_ty value, int lineno, int col_offset, int end_lineno,
+                     int end_col_offset, PyArena *arena)
+{
+    expr_ty p;
+    if (!value) {
+        PyErr_SetString(PyExc_ValueError,
+                        "field 'value' is required for OptionalChain");
+        return NULL;
+    }
+    p = (expr_ty)_PyArena_Malloc(arena, sizeof(*p));
+    if (!p)
+        return NULL;
+    p->kind = OptionalChain_kind;
+    p->v.OptionalChain.value = value;
+    p->lineno = lineno;
+    p->col_offset = col_offset;
+    p->end_lineno = end_lineno;
+    p->end_col_offset = end_col_offset;
+    return p;
+}
+
+expr_ty
 _PyAST_Attribute(expr_ty value, identifier attr, expr_context_ty ctx, int
                  lineno, int col_offset, int end_lineno, int end_col_offset,
                  PyArena *arena)
@@ -9908,6 +10045,31 @@ ast2obj_expr(struct ast_state *state, void* _o)
         value = ast2obj_string(state, o->v.Constant.kind);
         if (!value) goto failed;
         if (PyObject_SetAttr(result, state->kind, value) == -1)
+            goto failed;
+        Py_DECREF(value);
+        break;
+    case NoneAwareAttribute_kind:
+        tp = (PyTypeObject *)state->NoneAwareAttribute_type;
+        result = PyType_GenericNew(tp, NULL, NULL);
+        if (!result) goto failed;
+        value = ast2obj_expr(state, o->v.NoneAwareAttribute.value);
+        if (!value) goto failed;
+        if (PyObject_SetAttr(result, state->value, value) == -1)
+            goto failed;
+        Py_DECREF(value);
+        value = ast2obj_identifier(state, o->v.NoneAwareAttribute.attr);
+        if (!value) goto failed;
+        if (PyObject_SetAttr(result, state->attr, value) == -1)
+            goto failed;
+        Py_DECREF(value);
+        break;
+    case OptionalChain_kind:
+        tp = (PyTypeObject *)state->OptionalChain_type;
+        result = PyType_GenericNew(tp, NULL, NULL);
+        if (!result) goto failed;
+        value = ast2obj_expr(state, o->v.OptionalChain.value);
+        if (!value) goto failed;
+        if (PyObject_SetAttr(result, state->value, value) == -1)
             goto failed;
         Py_DECREF(value);
         break;
@@ -15275,6 +15437,84 @@ obj2ast_expr(struct ast_state *state, PyObject* obj, expr_ty* out, PyArena*
         if (*out == NULL) goto failed;
         return 0;
     }
+    tp = state->NoneAwareAttribute_type;
+    isinstance = PyObject_IsInstance(obj, tp);
+    if (isinstance == -1) {
+        return -1;
+    }
+    if (isinstance) {
+        expr_ty value;
+        identifier attr;
+
+        if (PyObject_GetOptionalAttr(obj, state->value, &tmp) < 0) {
+            return -1;
+        }
+        if (tmp == NULL) {
+            PyErr_SetString(PyExc_TypeError, "required field \"value\" missing from NoneAwareAttribute");
+            return -1;
+        }
+        else {
+            int res;
+            if (_Py_EnterRecursiveCall(" while traversing 'NoneAwareAttribute' node")) {
+                goto failed;
+            }
+            res = obj2ast_expr(state, tmp, &value, arena);
+            _Py_LeaveRecursiveCall();
+            if (res != 0) goto failed;
+            Py_CLEAR(tmp);
+        }
+        if (PyObject_GetOptionalAttr(obj, state->attr, &tmp) < 0) {
+            return -1;
+        }
+        if (tmp == NULL) {
+            PyErr_SetString(PyExc_TypeError, "required field \"attr\" missing from NoneAwareAttribute");
+            return -1;
+        }
+        else {
+            int res;
+            if (_Py_EnterRecursiveCall(" while traversing 'NoneAwareAttribute' node")) {
+                goto failed;
+            }
+            res = obj2ast_identifier(state, tmp, &attr, arena);
+            _Py_LeaveRecursiveCall();
+            if (res != 0) goto failed;
+            Py_CLEAR(tmp);
+        }
+        *out = _PyAST_NoneAwareAttribute(value, attr, lineno, col_offset,
+                                         end_lineno, end_col_offset, arena);
+        if (*out == NULL) goto failed;
+        return 0;
+    }
+    tp = state->OptionalChain_type;
+    isinstance = PyObject_IsInstance(obj, tp);
+    if (isinstance == -1) {
+        return -1;
+    }
+    if (isinstance) {
+        expr_ty value;
+
+        if (PyObject_GetOptionalAttr(obj, state->value, &tmp) < 0) {
+            return -1;
+        }
+        if (tmp == NULL) {
+            PyErr_SetString(PyExc_TypeError, "required field \"value\" missing from OptionalChain");
+            return -1;
+        }
+        else {
+            int res;
+            if (_Py_EnterRecursiveCall(" while traversing 'OptionalChain' node")) {
+                goto failed;
+            }
+            res = obj2ast_expr(state, tmp, &value, arena);
+            _Py_LeaveRecursiveCall();
+            if (res != 0) goto failed;
+            Py_CLEAR(tmp);
+        }
+        *out = _PyAST_OptionalChain(value, lineno, col_offset, end_lineno,
+                                    end_col_offset, arena);
+        if (*out == NULL) goto failed;
+        return 0;
+    }
     tp = state->Attribute_type;
     isinstance = PyObject_IsInstance(obj, tp);
     if (isinstance == -1) {
@@ -18210,6 +18450,14 @@ astmodule_exec(PyObject *m)
         return -1;
     }
     if (PyModule_AddObjectRef(m, "Constant", state->Constant_type) < 0) {
+        return -1;
+    }
+    if (PyModule_AddObjectRef(m, "NoneAwareAttribute",
+        state->NoneAwareAttribute_type) < 0) {
+        return -1;
+    }
+    if (PyModule_AddObjectRef(m, "OptionalChain", state->OptionalChain_type) <
+        0) {
         return -1;
     }
     if (PyModule_AddObjectRef(m, "Attribute", state->Attribute_type) < 0) {

@@ -1085,6 +1085,9 @@ _PyPegen_get_expr_name(expr_ty e)
 {
     assert(e != NULL);
     switch (e->kind) {
+        case NoneAwareAttribute_kind:
+        case OptionalChain_kind:
+            return "optional chain";
         case Attribute_kind:
             return "attribute";
         case Subscript_kind:
@@ -2131,4 +2134,30 @@ _PyPegen_register_stmts(Parser *p, asdl_stmt_seq* stmts) {
     p->last_stmt_location.end_lineno = last_stmt->end_lineno;
     p->last_stmt_location.end_col_offset = last_stmt->end_col_offset;
     return stmts;
+}
+
+/* Wrap a completed primary, without crossing independent expression boundaries. */
+expr_ty
+_PyPegen_optional_chain(Parser *p, expr_ty value)
+{
+    expr_ty current = value;
+    for (;;) {
+        switch (current->kind) {
+            case NoneAwareAttribute_kind:
+                return _PyAST_OptionalChain(value, value->lineno,
+                    value->col_offset, value->end_lineno,
+                    value->end_col_offset, p->arena);
+            case Attribute_kind:
+                current = current->v.Attribute.value;
+                break;
+            case Call_kind:
+                current = current->v.Call.func;
+                break;
+            case Subscript_kind:
+                current = current->v.Subscript.value;
+                break;
+            default:
+                return value;
+        }
+    }
 }

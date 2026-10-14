@@ -5404,6 +5404,56 @@ codegen_with(compiler *c, stmt_ty s)
     return codegen_with_inner(c, s, 0);
 }
 
+/* Every checked access in this primary jumps to the same chain boundary. */
+static int
+codegen_optional_chain_tail(compiler *c, expr_ty e, jump_target_label end)
+{
+    if (Py_EnterRecursiveCall(" during compilation")) {
+        return ERROR;
+    }
+    location loc = LOC(e);
+    switch (e->kind) {
+    case NoneAwareAttribute_kind:
+        RETURN_IF_ERROR(codegen_optional_chain_tail(
+            c, e->v.NoneAwareAttribute.value, end));
+        ADDOP_I(c, loc, COPY, 1);
+        ADDOP_JUMP(c, loc, POP_JUMP_IF_NONE, end);
+        ADDOP_NAME(c, loc, LOAD_ATTR, e->v.NoneAwareAttribute.attr, names);
+        break;
+    case Attribute_kind:
+        RETURN_IF_ERROR(codegen_optional_chain_tail(
+            c, e->v.Attribute.value, end));
+        ADDOP_NAME(c, loc, LOAD_ATTR, e->v.Attribute.attr, names);
+        break;
+    case Subscript_kind:
+        RETURN_IF_ERROR(codegen_optional_chain_tail(
+            c, e->v.Subscript.value, end));
+        VISIT(c, expr, e->v.Subscript.slice);
+        ADDOP_I(c, loc, BINARY_OP, NB_SUBSCR);
+        break;
+    case Call_kind:
+        RETURN_IF_ERROR(codegen_validate_keywords(c, e->v.Call.keywords));
+        RETURN_IF_ERROR(codegen_optional_chain_tail(c, e->v.Call.func, end));
+        ADDOP(c, LOC(e->v.Call.func), PUSH_NULL);
+        RETURN_IF_ERROR(codegen_call_helper(
+            c, loc, 0, e->v.Call.args, e->v.Call.keywords));
+        break;
+    default:
+        VISIT(c, expr, e);
+        break;
+    }
+    return SUCCESS;
+}
+
+static int
+codegen_optional_chain(compiler *c, expr_ty value)
+{
+    NEW_JUMP_TARGET_LABEL(c, end);
+    RETURN_IF_ERROR(codegen_optional_chain_tail(c, value, end));
+    USE_LABEL(c, end);
+    return SUCCESS;
+}
+
 static int
 codegen_visit_expr(compiler *c, expr_ty e)
 {
@@ -5491,6 +5541,10 @@ codegen_visit_expr(compiler *c, expr_ty e)
     case Constant_kind:
         ADDOP_LOAD_CONST(c, loc, e->v.Constant.value);
         break;
+    case NoneAwareAttribute_kind:
+        return codegen_optional_chain(c, e);
+    case OptionalChain_kind:
+        return codegen_optional_chain(c, e->v.OptionalChain.value);
     case JoinedStr_kind:
         return codegen_joined_str(c, e);
     case TemplateStr_kind:

@@ -869,10 +869,11 @@ power[expr_ty]:
 # Primary elements are things like "obj.something.something", "obj[something]", "obj(something)", "obj" ...
 
 await_primary[expr_ty] (memo):
-    | 'await' a=primary { CHECK_VERSION(expr_ty, 5, "Await expressions are", _PyAST_Await(a, EXTRA)) }
-    | primary
+    | 'await' a=primary { CHECK_VERSION(expr_ty, 5, "Await expressions are", _PyAST_Await(CHECK(expr_ty, _PyPegen_optional_chain(p, a)), EXTRA)) }
+    | a=primary { _PyPegen_optional_chain(p, a) }
 
 primary[expr_ty]:
+    | a=primary '?.' b=NAME { _PyAST_NoneAwareAttribute(a, b->v.Name.id, EXTRA) }
     | a=primary '.' b=NAME { _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA) }
     | a=primary b=genexp { _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA) }
     | a=primary '(' b=[arguments] ')' {
