@@ -1,5 +1,7 @@
 import ast
+import dis
 import io
+import sys
 import tokenize
 import unittest
 from types import SimpleNamespace
@@ -42,6 +44,107 @@ class NoneAwareTests(unittest.TestCase):
 
         self.assertEqual(self.evaluate("make()?.name", make=make), "Ada")
         self.assertEqual(calls, [1])
+
+    def test_local_access_uses_fused_load(self) -> None:
+        namespace: dict[str, Any] = {"Any": Any}
+        exec(
+            "def optional(value: Any) -> Any:\n"
+            "    return value?.name\n"
+            "def explicit(value: Any) -> Any:\n"
+            "    return value.name if value is not None else None\n",
+            namespace,
+        )
+        optional = namespace["optional"]
+        explicit = namespace["explicit"]
+        self.assertIn(
+            "LOAD_FAST_LOAD_FAST",
+            [instruction.opname for instruction in dis.get_instructions(optional)],
+        )
+        self.assertNotIn(
+            "COPY",
+            [instruction.opname for instruction in dis.get_instructions(optional)],
+        )
+        for value in (None, SimpleNamespace(name="Ada")):
+            self.assertEqual(optional(value), explicit(value))
+
+    def test_traced_local_rebinding_preserves_operand(self) -> None:
+        namespace: dict[str, Any] = {"Any": Any}
+        exec("def access(value: Any) -> Any:\n    return value?.name\n", namespace)
+        access = namespace["access"]
+        check_offset = next(
+            instruction.offset
+            for instruction in dis.get_instructions(access)
+            if instruction.opname == "POP_JUMP_IF_NONE"
+        )
+
+        def trace(frame: Any, event: str, argument: Any) -> Any:
+            if frame.f_code is access.__code__:
+                frame.f_trace_opcodes = True
+                if event == "opcode" and frame.f_lasti == check_offset:
+                    frame.f_locals["value"] = None
+            return trace
+
+        previous_trace = sys.gettrace()
+        sys.settrace(trace)
+        try:
+            self.assertEqual(access(SimpleNamespace(name="Ada")), "Ada")
+        finally:
+            sys.settrace(previous_trace)
+
+    def test_local_access_outside_fused_load_range(self) -> None:
+        namespace: dict[str, Any] = {"Any": Any}
+        parameters = [f"arg{index}: Any" for index in range(16)]
+        parameters.append("value: Any")
+        exec(
+            f"def access({', '.join(parameters)}) -> Any:\n"
+            "    return value?.name\n",
+            namespace,
+        )
+        access = namespace["access"]
+        self.assertIn(
+            "COPY", [instruction.opname for instruction in dis.get_instructions(access)]
+        )
+        for value, expected in ((None, None), (SimpleNamespace(name="Ada"), "Ada")):
+            self.assertEqual(access(*([None] * 16), value), expected)
+
+    def test_local_access_in_expression_and_chain(self) -> None:
+        namespace: dict[str, Any] = {"Any": Any}
+        exec(
+            "def access(value: Any) -> Any:\n"
+            "    result = ('prefix', value?.profile?.name)\n"
+            "    return result\n",
+            namespace,
+        )
+        for value, expected in (
+            (None, None),
+            (SimpleNamespace(profile=None), None),
+            (SimpleNamespace(profile=SimpleNamespace(name="Ada")), "Ada"),
+        ):
+            self.assertEqual(namespace["access"](value), ("prefix", expected))
+
+    def test_unbound_local_access(self) -> None:
+        namespace: dict[str, Any] = {"Any": Any}
+        exec(
+            "def access() -> Any:\n"
+            "    result = value?.name\n"
+            "    value = None\n"
+            "    return result\n",
+            namespace,
+        )
+        with self.assertRaises(UnboundLocalError):
+            namespace["access"]()
+
+    def test_dynamic_name_lookup_once(self) -> None:
+        class Namespace(dict[str, Any]):
+            def __getitem__(self, key: str) -> Any:
+                if key == "value":
+                    calls.append(key)
+                    return SimpleNamespace(name="Ada")
+                return super().__getitem__(key)
+
+        calls: list[str] = []
+        self.assertEqual(eval("value?.name", {}, Namespace()), "Ada")
+        self.assertEqual(calls, ["value"])
 
     def test_chain(self) -> None:
         source = "value?.profile.name.upper()"

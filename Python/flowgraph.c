@@ -2707,6 +2707,21 @@ insert_superinstructions(cfg_builder *g)
                     if (nextop == LOAD_FAST) {
                         make_super_instruction(inst, &b->b_instr[i + 1], LOAD_FAST_LOAD_FAST);
                     }
+                    else if (nextop == COPY && inst->i_oparg < 16 &&
+                             b->b_instr[i + 1].i_oparg == 1 &&
+                             i + 2 < b->b_iused &&
+                             b->b_instr[i + 2].i_opcode == POP_JUMP_IF_NONE) {
+                        cfg_instr *copy = &b->b_instr[i + 1];
+                        if (inst->i_loc.lineno < 0 || copy->i_loc.lineno < 0 ||
+                            inst->i_loc.lineno == copy->i_loc.lineno) {
+                            /* Keep the checked operand on the stack, including
+                             * when tracing changes the local after this load. */
+                            int local = inst->i_oparg;
+                            INSTR_SET_OP1(inst, LOAD_FAST_LOAD_FAST,
+                                          (local << 4) | local);
+                            INSTR_SET_OP0(copy, NOP);
+                        }
+                    }
                     break;
                 case STORE_FAST:
                     switch (nextop) {
