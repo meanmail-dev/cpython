@@ -47,7 +47,9 @@ extern "C" {
         ((opcode) == POP_JUMP_IF_FALSE || \
          (opcode) == POP_JUMP_IF_TRUE || \
          (opcode) == POP_JUMP_IF_NONE || \
-         (opcode) == POP_JUMP_IF_NOT_NONE)
+         (opcode) == POP_JUMP_IF_NOT_NONE || \
+         (opcode) == JUMP_IF_NONE || \
+         (opcode) == JUMP_IF_NOT_NONE)
 
 #define IS_SCOPE_EXIT_OPCODE(opcode) \
         ((opcode) == RETURN_VALUE || \

@@ -7437,6 +7437,48 @@
             DISPATCH();
         }
 
+        TARGET(INSTRUMENTED_JUMP_IF_NONE) {
+            #if _Py_TAIL_CALL_INTERP
+            int opcode = INSTRUMENTED_JUMP_IF_NONE;
+            (void)(opcode);
+            #endif
+            _Py_CODEUNIT* const this_instr = next_instr;
+            (void)this_instr;
+            frame->instr_ptr = next_instr;
+            next_instr += 2;
+            INSTRUCTION_STATS(INSTRUMENTED_JUMP_IF_NONE);
+            _PyStackRef value;
+            /* Skip 1 cache entry */
+            value = stack_pointer[-1];
+            int jump = PyStackRef_IsNone(value);
+            RECORD_BRANCH_TAKEN(this_instr[1].cache, jump);
+            if (jump) {
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
+            }
+            DISPATCH();
+        }
+
+        TARGET(INSTRUMENTED_JUMP_IF_NOT_NONE) {
+            #if _Py_TAIL_CALL_INTERP
+            int opcode = INSTRUMENTED_JUMP_IF_NOT_NONE;
+            (void)(opcode);
+            #endif
+            _Py_CODEUNIT* const this_instr = next_instr;
+            (void)this_instr;
+            frame->instr_ptr = next_instr;
+            next_instr += 2;
+            INSTRUCTION_STATS(INSTRUMENTED_JUMP_IF_NOT_NONE);
+            _PyStackRef value;
+            /* Skip 1 cache entry */
+            value = stack_pointer[-1];
+            int jump = !PyStackRef_IsNone(value);
+            RECORD_BRANCH_TAKEN(this_instr[1].cache, jump);
+            if (jump) {
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
+            }
+            DISPATCH();
+        }
+
         TARGET(INSTRUMENTED_LINE) {
             #if _Py_TAIL_CALL_INTERP
             int opcode = INSTRUMENTED_LINE;
@@ -8188,6 +8230,66 @@
             next_instr += 1;
             INSTRUCTION_STATS(JUMP_FORWARD);
             JUMPBY(oparg);
+            DISPATCH();
+        }
+
+        TARGET(JUMP_IF_NONE) {
+            #if _Py_TAIL_CALL_INTERP
+            int opcode = JUMP_IF_NONE;
+            (void)(opcode);
+            #endif
+            _Py_CODEUNIT* const this_instr = next_instr;
+            (void)this_instr;
+            frame->instr_ptr = next_instr;
+            next_instr += 2;
+            INSTRUCTION_STATS(JUMP_IF_NONE);
+            _PyStackRef value;
+            _PyStackRef b;
+            _PyStackRef cond;
+            /* Skip 1 cache entry */
+            // _IS_NONE_KEEP
+            {
+                value = stack_pointer[-1];
+                b = PyStackRef_IsNone(value) ? PyStackRef_True : PyStackRef_False;
+            }
+            // _POP_JUMP_IF_TRUE
+            {
+                cond = b;
+                assert(PyStackRef_BoolCheck(cond));
+                int flag = PyStackRef_IsTrue(cond);
+                RECORD_BRANCH_TAKEN(this_instr[1].cache, flag);
+                JUMPBY(flag ? oparg : next_instr->op.code == NOT_TAKEN);
+            }
+            DISPATCH();
+        }
+
+        TARGET(JUMP_IF_NOT_NONE) {
+            #if _Py_TAIL_CALL_INTERP
+            int opcode = JUMP_IF_NOT_NONE;
+            (void)(opcode);
+            #endif
+            _Py_CODEUNIT* const this_instr = next_instr;
+            (void)this_instr;
+            frame->instr_ptr = next_instr;
+            next_instr += 2;
+            INSTRUCTION_STATS(JUMP_IF_NOT_NONE);
+            _PyStackRef value;
+            _PyStackRef b;
+            _PyStackRef cond;
+            /* Skip 1 cache entry */
+            // _IS_NONE_KEEP
+            {
+                value = stack_pointer[-1];
+                b = PyStackRef_IsNone(value) ? PyStackRef_True : PyStackRef_False;
+            }
+            // _POP_JUMP_IF_FALSE
+            {
+                cond = b;
+                assert(PyStackRef_BoolCheck(cond));
+                int flag = PyStackRef_IsFalse(cond);
+                RECORD_BRANCH_TAKEN(this_instr[1].cache, flag);
+                JUMPBY(flag ? oparg : next_instr->op.code == NOT_TAKEN);
+            }
             DISPATCH();
         }
 

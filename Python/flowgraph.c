@@ -559,6 +559,12 @@ normalize_jumps_in_block(cfg_builder *g, basicblock *b) {
 
     int reversed_opcode = 0;
     switch(last->i_opcode) {
+        case JUMP_IF_NONE:
+            reversed_opcode = JUMP_IF_NOT_NONE;
+            break;
+        case JUMP_IF_NOT_NONE:
+            reversed_opcode = JUMP_IF_NONE;
+            break;
         case POP_JUMP_IF_NOT_NONE:
             reversed_opcode = POP_JUMP_IF_NONE;
             break;
@@ -2707,21 +2713,6 @@ insert_superinstructions(cfg_builder *g)
                     if (nextop == LOAD_FAST) {
                         make_super_instruction(inst, &b->b_instr[i + 1], LOAD_FAST_LOAD_FAST);
                     }
-                    else if (nextop == COPY && inst->i_oparg < 16 &&
-                             b->b_instr[i + 1].i_oparg == 1 &&
-                             i + 2 < b->b_iused &&
-                             b->b_instr[i + 2].i_opcode == POP_JUMP_IF_NONE) {
-                        cfg_instr *copy = &b->b_instr[i + 1];
-                        if (inst->i_loc.lineno < 0 || copy->i_loc.lineno < 0 ||
-                            inst->i_loc.lineno == copy->i_loc.lineno) {
-                            /* Keep the checked operand on the stack, including
-                             * when tracing changes the local after this load. */
-                            int local = inst->i_oparg;
-                            INSTR_SET_OP1(inst, LOAD_FAST_LOAD_FAST,
-                                          (local << 4) | local);
-                            INSTR_SET_OP0(copy, NOP);
-                        }
-                    }
                     break;
                 case STORE_FAST:
                     switch (nextop) {
@@ -3123,6 +3114,12 @@ optimize_load_fast(cfg_builder *g)
                 }
 
                 // Opcodes that consume all of their inputs
+                case JUMP_IF_NONE:
+                case JUMP_IF_NOT_NONE:
+                    /* The original reference survives both branch outcomes. */
+                    load_fast_push_block(&sp, instr->i_target, refs.size);
+                    break;
+
                 default: {
                     int num_popped = _PyOpcode_num_popped(opcode, oparg);
                     int num_pushed = _PyOpcode_num_pushed(opcode, oparg);

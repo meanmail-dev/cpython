@@ -3643,6 +3643,10 @@ dummy_func(
             }
         }
 
+        op(_IS_NONE_KEEP, (value -- value, b)) {
+            b = PyStackRef_IsNone(value) ? PyStackRef_True : PyStackRef_False;
+        }
+
         macro(POP_JUMP_IF_TRUE) = unused/1 + _POP_JUMP_IF_TRUE;
 
         macro(POP_JUMP_IF_FALSE) = unused/1 + _POP_JUMP_IF_FALSE;
@@ -3650,6 +3654,10 @@ dummy_func(
         macro(POP_JUMP_IF_NONE) = unused/1 + _IS_NONE + _POP_JUMP_IF_TRUE;
 
         macro(POP_JUMP_IF_NOT_NONE) = unused/1 + _IS_NONE + _POP_JUMP_IF_FALSE;
+
+        macro(JUMP_IF_NONE) = unused/1 + _IS_NONE_KEEP + _POP_JUMP_IF_TRUE;
+
+        macro(JUMP_IF_NOT_NONE) = unused/1 + _IS_NONE_KEEP + _POP_JUMP_IF_FALSE;
 
         replaced inst(JUMP_BACKWARD_NO_INTERRUPT, (--)) {
             /* This bytecode is used in the `yield from` or `await` loop.
@@ -6034,6 +6042,22 @@ dummy_func(
             }
         }
 
+        inst(INSTRUMENTED_JUMP_IF_NONE, (unused/1, value -- value)) {
+            int jump = PyStackRef_IsNone(value);
+            RECORD_BRANCH_TAKEN(this_instr[1].cache, jump);
+            if (jump) {
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
+            }
+        }
+
+        inst(INSTRUMENTED_JUMP_IF_NOT_NONE, (unused/1, value -- value)) {
+            int jump = !PyStackRef_IsNone(value);
+            RECORD_BRANCH_TAKEN(this_instr[1].cache, jump);
+            if (jump) {
+                INSTRUMENTED_JUMP(this_instr, next_instr + oparg, PY_MONITORING_EVENT_BRANCH_RIGHT);
+            }
+        }
+
         inst(INSTRUMENTED_POP_JUMP_IF_NOT_NONE, (unused/1, value -- )) {
             int jump = !PyStackRef_IsNone(value);
             RECORD_BRANCH_TAKEN(this_instr[1].cache, jump);
@@ -6107,6 +6131,14 @@ dummy_func(
                 AT_END_EXIT_IF(1);
             }
             DEAD(val);
+        }
+
+        op(_GUARD_IS_NONE_KEEP, (val -- val)) {
+            AT_END_EXIT_IF(!PyStackRef_IsNone(val));
+        }
+
+        op(_GUARD_IS_NOT_NONE_KEEP, (val -- val)) {
+            AT_END_EXIT_IF(PyStackRef_IsNone(val));
         }
 
         op (_GUARD_IS_NOT_NONE_POP, (val -- )) {

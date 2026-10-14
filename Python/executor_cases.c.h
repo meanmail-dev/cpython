@@ -14076,6 +14076,54 @@
             break;
         }
 
+        case _IS_NONE_KEEP_r02: {
+            CHECK_CURRENT_CACHED_VALUES(0);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            _PyStackRef value;
+            _PyStackRef b;
+            value = stack_pointer[-1];
+            b = PyStackRef_IsNone(value) ? PyStackRef_True : PyStackRef_False;
+            _tos_cache1 = b;
+            _tos_cache0 = value;
+            SET_CURRENT_CACHED_VALUES(2);
+            stack_pointer += -1;
+            ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            break;
+        }
+
+        case _IS_NONE_KEEP_r12: {
+            CHECK_CURRENT_CACHED_VALUES(1);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            _PyStackRef value;
+            _PyStackRef b;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            value = _stack_item_0;
+            b = PyStackRef_IsNone(value) ? PyStackRef_True : PyStackRef_False;
+            _tos_cache1 = b;
+            _tos_cache0 = value;
+            SET_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            break;
+        }
+
+        case _IS_NONE_KEEP_r23: {
+            CHECK_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            _PyStackRef value;
+            _PyStackRef b;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            value = _stack_item_1;
+            b = PyStackRef_IsNone(value) ? PyStackRef_True : PyStackRef_False;
+            _tos_cache2 = b;
+            _tos_cache1 = value;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(3);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            break;
+        }
+
         /* _JUMP_BACKWARD_NO_INTERRUPT is not a viable micro-op for tier 2 because it is replaced */
 
         case _GET_LEN_r12: {
@@ -21082,6 +21130,10 @@
 
         /* _INSTRUMENTED_POP_JUMP_IF_NONE is not a viable micro-op for tier 2 because it is instrumented */
 
+        /* _INSTRUMENTED_JUMP_IF_NONE is not a viable micro-op for tier 2 because it is instrumented */
+
+        /* _INSTRUMENTED_JUMP_IF_NOT_NONE is not a viable micro-op for tier 2 because it is instrumented */
+
         /* _INSTRUMENTED_POP_JUMP_IF_NOT_NONE is not a viable micro-op for tier 2 because it is instrumented */
 
         case _GUARD_IS_TRUE_POP_r00: {
@@ -22423,6 +22475,174 @@
             _tos_cache1 = _stack_item_1;
             _tos_cache0 = _stack_item_0;
             SET_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            break;
+        }
+
+        case _GUARD_IS_NONE_KEEP_r01: {
+            CHECK_CURRENT_CACHED_VALUES(0);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            _PyStackRef val;
+            val = stack_pointer[-1];
+            if (!PyStackRef_IsNone(val)) {
+                UOP_STAT_INC(uopcode, miss);
+                _tos_cache0 = val;
+                SET_CURRENT_CACHED_VALUES(1);
+                stack_pointer += -1;
+                ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
+                JUMP_TO_JUMP_TARGET();
+            }
+            _tos_cache0 = val;
+            SET_CURRENT_CACHED_VALUES(1);
+            stack_pointer += -1;
+            ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            break;
+        }
+
+        case _GUARD_IS_NONE_KEEP_r11: {
+            CHECK_CURRENT_CACHED_VALUES(1);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            _PyStackRef val;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            val = _stack_item_0;
+            if (!PyStackRef_IsNone(val)) {
+                UOP_STAT_INC(uopcode, miss);
+                _tos_cache0 = val;
+                SET_CURRENT_CACHED_VALUES(1);
+                JUMP_TO_JUMP_TARGET();
+            }
+            _tos_cache0 = val;
+            SET_CURRENT_CACHED_VALUES(1);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            break;
+        }
+
+        case _GUARD_IS_NONE_KEEP_r22: {
+            CHECK_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            _PyStackRef val;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            val = _stack_item_1;
+            if (!PyStackRef_IsNone(val)) {
+                UOP_STAT_INC(uopcode, miss);
+                _tos_cache1 = val;
+                _tos_cache0 = _stack_item_0;
+                SET_CURRENT_CACHED_VALUES(2);
+                JUMP_TO_JUMP_TARGET();
+            }
+            _tos_cache1 = val;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            break;
+        }
+
+        case _GUARD_IS_NONE_KEEP_r33: {
+            CHECK_CURRENT_CACHED_VALUES(3);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            _PyStackRef val;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            _PyStackRef _stack_item_2 = _tos_cache2;
+            val = _stack_item_2;
+            if (!PyStackRef_IsNone(val)) {
+                UOP_STAT_INC(uopcode, miss);
+                _tos_cache2 = val;
+                _tos_cache1 = _stack_item_1;
+                _tos_cache0 = _stack_item_0;
+                SET_CURRENT_CACHED_VALUES(3);
+                JUMP_TO_JUMP_TARGET();
+            }
+            _tos_cache2 = val;
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(3);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            break;
+        }
+
+        case _GUARD_IS_NOT_NONE_KEEP_r01: {
+            CHECK_CURRENT_CACHED_VALUES(0);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            _PyStackRef val;
+            val = stack_pointer[-1];
+            if (PyStackRef_IsNone(val)) {
+                UOP_STAT_INC(uopcode, miss);
+                _tos_cache0 = val;
+                SET_CURRENT_CACHED_VALUES(1);
+                stack_pointer += -1;
+                ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
+                JUMP_TO_JUMP_TARGET();
+            }
+            _tos_cache0 = val;
+            SET_CURRENT_CACHED_VALUES(1);
+            stack_pointer += -1;
+            ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            break;
+        }
+
+        case _GUARD_IS_NOT_NONE_KEEP_r11: {
+            CHECK_CURRENT_CACHED_VALUES(1);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            _PyStackRef val;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            val = _stack_item_0;
+            if (PyStackRef_IsNone(val)) {
+                UOP_STAT_INC(uopcode, miss);
+                _tos_cache0 = val;
+                SET_CURRENT_CACHED_VALUES(1);
+                JUMP_TO_JUMP_TARGET();
+            }
+            _tos_cache0 = val;
+            SET_CURRENT_CACHED_VALUES(1);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            break;
+        }
+
+        case _GUARD_IS_NOT_NONE_KEEP_r22: {
+            CHECK_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            _PyStackRef val;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            val = _stack_item_1;
+            if (PyStackRef_IsNone(val)) {
+                UOP_STAT_INC(uopcode, miss);
+                _tos_cache1 = val;
+                _tos_cache0 = _stack_item_0;
+                SET_CURRENT_CACHED_VALUES(2);
+                JUMP_TO_JUMP_TARGET();
+            }
+            _tos_cache1 = val;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(2);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            break;
+        }
+
+        case _GUARD_IS_NOT_NONE_KEEP_r33: {
+            CHECK_CURRENT_CACHED_VALUES(3);
+            assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
+            _PyStackRef val;
+            _PyStackRef _stack_item_0 = _tos_cache0;
+            _PyStackRef _stack_item_1 = _tos_cache1;
+            _PyStackRef _stack_item_2 = _tos_cache2;
+            val = _stack_item_2;
+            if (PyStackRef_IsNone(val)) {
+                UOP_STAT_INC(uopcode, miss);
+                _tos_cache2 = val;
+                _tos_cache1 = _stack_item_1;
+                _tos_cache0 = _stack_item_0;
+                SET_CURRENT_CACHED_VALUES(3);
+                JUMP_TO_JUMP_TARGET();
+            }
+            _tos_cache2 = val;
+            _tos_cache1 = _stack_item_1;
+            _tos_cache0 = _stack_item_0;
+            SET_CURRENT_CACHED_VALUES(3);
             assert(WITHIN_STACK_BOUNDS_IGNORING_CACHE());
             break;
         }

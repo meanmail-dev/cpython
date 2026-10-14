@@ -834,6 +834,20 @@ dummy_func(void) {
         }
     }
 
+    op(_IS_NONE_KEEP, (value -- value, b)) {
+        if (sym_is_const(ctx, value)) {
+            PyObject *value_o = sym_get_const(ctx, value);
+            b = sym_new_const(ctx, Py_IsNone(value_o) ? Py_True : Py_False);
+        }
+        else {
+            b = sym_new_type(ctx, &PyBool_Type);
+        }
+    }
+
+    op(_GUARD_IS_NONE_KEEP, (val -- val)) {
+        sym_set_const(val, Py_None);
+    }
+
     op(_CONTAINS_OP, (left, right -- b, l, r)) {
         b = sym_new_type(ctx, &PyBool_Type);
         l = left;

@@ -160,6 +160,8 @@ print_spec_stats(FILE *out, OpcodeStats *stats)
             switch (i) {
                 case POP_JUMP_IF_FALSE:
                 case POP_JUMP_IF_TRUE:
+                case JUMP_IF_NONE:
+                case JUMP_IF_NOT_NONE:
                 case POP_JUMP_IF_NONE:
                 case POP_JUMP_IF_NOT_NONE:
                 case JUMP_BACKWARD:

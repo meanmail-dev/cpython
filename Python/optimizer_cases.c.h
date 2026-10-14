@@ -3487,6 +3487,24 @@
             break;
         }
 
+        case _IS_NONE_KEEP: {
+            JitOptRef value;
+            JitOptRef b;
+            value = stack_pointer[-1];
+            if (sym_is_const(ctx, value)) {
+                PyObject *value_o = sym_get_const(ctx, value);
+                b = sym_new_const(ctx, Py_IsNone(value_o) ? Py_True : Py_False);
+            }
+            else {
+                b = sym_new_type(ctx, &PyBool_Type);
+            }
+            CHECK_STACK_BOUNDS(1);
+            stack_pointer[0] = b;
+            stack_pointer += 1;
+            ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
+            break;
+        }
+
         /* _JUMP_BACKWARD_NO_INTERRUPT is not a viable micro-op for tier 2 */
 
         case _GET_LEN: {
@@ -5454,6 +5472,10 @@
 
         /* _INSTRUMENTED_POP_JUMP_IF_NONE is not a viable micro-op for tier 2 */
 
+        /* _INSTRUMENTED_JUMP_IF_NONE is not a viable micro-op for tier 2 */
+
+        /* _INSTRUMENTED_JUMP_IF_NOT_NONE is not a viable micro-op for tier 2 */
+
         /* _INSTRUMENTED_POP_JUMP_IF_NOT_NONE is not a viable micro-op for tier 2 */
 
         case _GUARD_IS_TRUE_POP: {
@@ -5536,6 +5558,17 @@
             CHECK_STACK_BOUNDS(-1);
             stack_pointer += -1;
             ASSERT_WITHIN_STACK_BOUNDS(__FILE__, __LINE__);
+            break;
+        }
+
+        case _GUARD_IS_NONE_KEEP: {
+            JitOptRef val;
+            val = stack_pointer[-1];
+            sym_set_const(val, Py_None);
+            break;
+        }
+
+        case _GUARD_IS_NOT_NONE_KEEP: {
             break;
         }
 

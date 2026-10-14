@@ -257,6 +257,7 @@ const uint32_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_IMPORT_NAME] = HAS_ARG_FLAG | HAS_NAME_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_IMPORT_FROM] = HAS_ARG_FLAG | HAS_NAME_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_IS_NONE] = HAS_ESCAPES_FLAG,
+    [_IS_NONE_KEEP] = 0,
     [_GET_LEN] = HAS_ERROR_FLAG | HAS_ESCAPES_FLAG,
     [_MATCH_CLASS] = HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG,
     [_MATCH_MAPPING] = 0,
@@ -395,6 +396,8 @@ const uint32_t _PyUop_Flags[MAX_UOP_ID+1] = {
     [_GUARD_BIT_IS_UNSET_POP_7] = HAS_EXIT_FLAG,
     [_GUARD_BIT_IS_UNSET_POP] = HAS_ARG_FLAG | HAS_EXIT_FLAG,
     [_GUARD_IS_NONE_POP] = HAS_EXIT_FLAG,
+    [_GUARD_IS_NONE_KEEP] = HAS_EXIT_FLAG,
+    [_GUARD_IS_NOT_NONE_KEEP] = HAS_EXIT_FLAG,
     [_GUARD_IS_NOT_NONE_POP] = HAS_EXIT_FLAG | HAS_ESCAPES_FLAG,
     [_JUMP_TO_TOP] = 0,
     [_SET_IP] = 0,
@@ -2448,6 +2451,15 @@ const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1] = {
             { -1, -1, -1 },
         },
     },
+    [_IS_NONE_KEEP] = {
+        .best = { 0, 1, 2, 2 },
+        .entries = {
+            { 2, 0, _IS_NONE_KEEP_r02 },
+            { 2, 1, _IS_NONE_KEEP_r12 },
+            { 3, 2, _IS_NONE_KEEP_r23 },
+            { -1, -1, -1 },
+        },
+    },
     [_GET_LEN] = {
         .best = { 1, 1, 1, 1 },
         .entries = {
@@ -3690,6 +3702,24 @@ const _PyUopCachingInfo _PyUop_Caching[MAX_UOP_ID+1] = {
             { 2, 2, _GUARD_IS_NONE_POP_r32 },
         },
     },
+    [_GUARD_IS_NONE_KEEP] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 1, 1, _GUARD_IS_NONE_KEEP_r01 },
+            { 1, 1, _GUARD_IS_NONE_KEEP_r11 },
+            { 2, 2, _GUARD_IS_NONE_KEEP_r22 },
+            { 3, 3, _GUARD_IS_NONE_KEEP_r33 },
+        },
+    },
+    [_GUARD_IS_NOT_NONE_KEEP] = {
+        .best = { 0, 1, 2, 3 },
+        .entries = {
+            { 1, 1, _GUARD_IS_NOT_NONE_KEEP_r01 },
+            { 1, 1, _GUARD_IS_NOT_NONE_KEEP_r11 },
+            { 2, 2, _GUARD_IS_NOT_NONE_KEEP_r22 },
+            { 3, 3, _GUARD_IS_NOT_NONE_KEEP_r33 },
+        },
+    },
     [_GUARD_IS_NOT_NONE_POP] = {
         .best = { 1, 1, 1, 1 },
         .entries = {
@@ -4473,6 +4503,9 @@ const uint16_t _PyUop_Uncached[MAX_UOP_REGS_ID+1] = {
     [_IMPORT_NAME_r21] = _IMPORT_NAME,
     [_IMPORT_FROM_r12] = _IMPORT_FROM,
     [_IS_NONE_r11] = _IS_NONE,
+    [_IS_NONE_KEEP_r02] = _IS_NONE_KEEP,
+    [_IS_NONE_KEEP_r12] = _IS_NONE_KEEP,
+    [_IS_NONE_KEEP_r23] = _IS_NONE_KEEP,
     [_GET_LEN_r12] = _GET_LEN,
     [_MATCH_CLASS_r33] = _MATCH_CLASS,
     [_MATCH_MAPPING_r02] = _MATCH_MAPPING,
@@ -4776,6 +4809,14 @@ const uint16_t _PyUop_Uncached[MAX_UOP_REGS_ID+1] = {
     [_GUARD_IS_NONE_POP_r10] = _GUARD_IS_NONE_POP,
     [_GUARD_IS_NONE_POP_r21] = _GUARD_IS_NONE_POP,
     [_GUARD_IS_NONE_POP_r32] = _GUARD_IS_NONE_POP,
+    [_GUARD_IS_NONE_KEEP_r01] = _GUARD_IS_NONE_KEEP,
+    [_GUARD_IS_NONE_KEEP_r11] = _GUARD_IS_NONE_KEEP,
+    [_GUARD_IS_NONE_KEEP_r22] = _GUARD_IS_NONE_KEEP,
+    [_GUARD_IS_NONE_KEEP_r33] = _GUARD_IS_NONE_KEEP,
+    [_GUARD_IS_NOT_NONE_KEEP_r01] = _GUARD_IS_NOT_NONE_KEEP,
+    [_GUARD_IS_NOT_NONE_KEEP_r11] = _GUARD_IS_NOT_NONE_KEEP,
+    [_GUARD_IS_NOT_NONE_KEEP_r22] = _GUARD_IS_NOT_NONE_KEEP,
+    [_GUARD_IS_NOT_NONE_KEEP_r33] = _GUARD_IS_NOT_NONE_KEEP,
     [_GUARD_IS_NOT_NONE_POP_r10] = _GUARD_IS_NOT_NONE_POP,
     [_JUMP_TO_TOP_r00] = _JUMP_TO_TOP,
     [_SET_IP_r00] = _SET_IP,
@@ -5462,11 +5503,21 @@ const char *const _PyOpcode_uop_name[MAX_UOP_REGS_ID+1] = {
     [_GUARD_IS_FALSE_POP_r10] = "_GUARD_IS_FALSE_POP_r10",
     [_GUARD_IS_FALSE_POP_r21] = "_GUARD_IS_FALSE_POP_r21",
     [_GUARD_IS_FALSE_POP_r32] = "_GUARD_IS_FALSE_POP_r32",
+    [_GUARD_IS_NONE_KEEP] = "_GUARD_IS_NONE_KEEP",
+    [_GUARD_IS_NONE_KEEP_r01] = "_GUARD_IS_NONE_KEEP_r01",
+    [_GUARD_IS_NONE_KEEP_r11] = "_GUARD_IS_NONE_KEEP_r11",
+    [_GUARD_IS_NONE_KEEP_r22] = "_GUARD_IS_NONE_KEEP_r22",
+    [_GUARD_IS_NONE_KEEP_r33] = "_GUARD_IS_NONE_KEEP_r33",
     [_GUARD_IS_NONE_POP] = "_GUARD_IS_NONE_POP",
     [_GUARD_IS_NONE_POP_r00] = "_GUARD_IS_NONE_POP_r00",
     [_GUARD_IS_NONE_POP_r10] = "_GUARD_IS_NONE_POP_r10",
     [_GUARD_IS_NONE_POP_r21] = "_GUARD_IS_NONE_POP_r21",
     [_GUARD_IS_NONE_POP_r32] = "_GUARD_IS_NONE_POP_r32",
+    [_GUARD_IS_NOT_NONE_KEEP] = "_GUARD_IS_NOT_NONE_KEEP",
+    [_GUARD_IS_NOT_NONE_KEEP_r01] = "_GUARD_IS_NOT_NONE_KEEP_r01",
+    [_GUARD_IS_NOT_NONE_KEEP_r11] = "_GUARD_IS_NOT_NONE_KEEP_r11",
+    [_GUARD_IS_NOT_NONE_KEEP_r22] = "_GUARD_IS_NOT_NONE_KEEP_r22",
+    [_GUARD_IS_NOT_NONE_KEEP_r33] = "_GUARD_IS_NOT_NONE_KEEP_r33",
     [_GUARD_IS_NOT_NONE_POP] = "_GUARD_IS_NOT_NONE_POP",
     [_GUARD_IS_NOT_NONE_POP_r10] = "_GUARD_IS_NOT_NONE_POP_r10",
     [_GUARD_IS_TRUE_POP] = "_GUARD_IS_TRUE_POP",
@@ -5701,6 +5752,10 @@ const char *const _PyOpcode_uop_name[MAX_UOP_REGS_ID+1] = {
     [_INSERT_NULL_r10] = "_INSERT_NULL_r10",
     [_IS_NONE] = "_IS_NONE",
     [_IS_NONE_r11] = "_IS_NONE_r11",
+    [_IS_NONE_KEEP] = "_IS_NONE_KEEP",
+    [_IS_NONE_KEEP_r02] = "_IS_NONE_KEEP_r02",
+    [_IS_NONE_KEEP_r12] = "_IS_NONE_KEEP_r12",
+    [_IS_NONE_KEEP_r23] = "_IS_NONE_KEEP_r23",
     [_IS_OP] = "_IS_OP",
     [_IS_OP_r03] = "_IS_OP_r03",
     [_IS_OP_r13] = "_IS_OP_r13",
@@ -6681,6 +6736,8 @@ int _PyUop_num_popped(int opcode, int oparg)
             return 0;
         case _IS_NONE:
             return 1;
+        case _IS_NONE_KEEP:
+            return 0;
         case _GET_LEN:
             return 0;
         case _MATCH_CLASS:
@@ -6957,6 +7014,10 @@ int _PyUop_num_popped(int opcode, int oparg)
             return 1;
         case _GUARD_IS_NONE_POP:
             return 1;
+        case _GUARD_IS_NONE_KEEP:
+            return 0;
+        case _GUARD_IS_NOT_NONE_KEEP:
+            return 0;
         case _GUARD_IS_NOT_NONE_POP:
             return 1;
         case _JUMP_TO_TOP:

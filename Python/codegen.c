@@ -5384,8 +5384,7 @@ codegen_optional_chain_tail(compiler *c, expr_ty e, jump_target_label end)
     case NoneAwareAttribute_kind:
         RETURN_IF_ERROR(codegen_optional_chain_tail(
             c, e->v.NoneAwareAttribute.value, end));
-        ADDOP_I(c, loc, COPY, 1);
-        ADDOP_JUMP(c, loc, POP_JUMP_IF_NONE, end);
+        ADDOP_JUMP(c, loc, JUMP_IF_NONE, end);
         ADDOP_NAME(c, loc, LOAD_ATTR, e->v.NoneAwareAttribute.attr, names);
         break;
     case Attribute_kind:

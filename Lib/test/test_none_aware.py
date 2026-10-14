@@ -1,4 +1,5 @@
 import ast
+import _opcode
 import dis
 import io
 import sys
@@ -45,7 +46,7 @@ class NoneAwareTests(unittest.TestCase):
         self.assertEqual(self.evaluate("make()?.name", make=make), "Ada")
         self.assertEqual(calls, [1])
 
-    def test_local_access_uses_fused_load(self) -> None:
+    def test_local_access_uses_none_jump(self) -> None:
         namespace: dict[str, Any] = {"Any": Any}
         exec(
             "def optional(value: Any) -> Any:\n"
@@ -57,7 +58,7 @@ class NoneAwareTests(unittest.TestCase):
         optional = namespace["optional"]
         explicit = namespace["explicit"]
         self.assertIn(
-            "LOAD_FAST_LOAD_FAST",
+            "JUMP_IF_NONE",
             [
                 instruction.opname
                 for instruction in dis.get_instructions(optional)
@@ -83,7 +84,7 @@ class NoneAwareTests(unittest.TestCase):
         check_offset = next(
             instruction.offset
             for instruction in dis.get_instructions(access)
-            if instruction.opname == "POP_JUMP_IF_NONE"
+            if instruction.opname == "JUMP_IF_NONE"
         )
 
         def trace(frame: Any, event: str, argument: Any) -> Any:
@@ -100,28 +101,160 @@ class NoneAwareTests(unittest.TestCase):
         finally:
             sys.settrace(previous_trace)
 
-    def test_local_access_outside_fused_load_range(self) -> None:
+    def test_local_access_above_short_operand_range(self) -> None:
+        for slot in (16, 256):
+            with self.subTest(slot=slot):
+                namespace: dict[str, Any] = {"Any": Any}
+                parameters = [f"arg{index}: Any" for index in range(slot)]
+                parameters.append("value: Any")
+                exec(
+                    f"def access({', '.join(parameters)}) -> Any:\n"
+                    "    return value?.name\n",
+                    namespace,
+                )
+                access = namespace["access"]
+                opnames = [i.opname for i in dis.get_instructions(access)]
+                self.assertIn("JUMP_IF_NONE", opnames)
+                self.assertNotIn("COPY", opnames)
+                for value, expected in (
+                    (None, None),
+                    (SimpleNamespace(name="Ada"), "Ada"),
+                ):
+                    self.assertEqual(access(*([None] * slot), value), expected)
+
+    def test_chain_uses_stack_preserving_jumps(self) -> None:
         namespace: dict[str, Any] = {"Any": Any}
-        parameters = [f"arg{index}: Any" for index in range(16)]
-        parameters.append("value: Any")
         exec(
-            f"def access({', '.join(parameters)}) -> Any:\n"
-            "    return value?.name\n",
+            "def access(value: Any) -> Any:\n"
+            "    return value?.profile?.name\n",
+            namespace,
+        )
+        instructions = list(dis.get_instructions(namespace["access"]))
+        checks = [i for i in instructions if i.opname == "JUMP_IF_NONE"]
+        self.assertEqual(len(checks), 2)
+        self.assertNotIn("COPY", [i.opname for i in instructions])
+        for check in checks:
+            for jump in (False, True):
+                self.assertEqual(
+                    dis.stack_effect(check.opcode, check.arg, jump=jump), 0
+                )
+
+    def test_optional_branch_monitoring(self) -> None:
+        monitoring = sys.monitoring
+        tool = 5
+        if monitoring.get_tool(tool) is not None:
+            self.skipTest("Monitoring tool slot is in use")
+        namespace: dict[str, Any] = {"Any": Any}
+        exec(
+            "def access(value: Any) -> Any:\n"
+            "    return value?.profile?.name\n",
             namespace,
         )
         access = namespace["access"]
-        self.assertIn(
-            "COPY",
-            [
-                instruction.opname
-                for instruction in dis.get_instructions(access)
-            ],
+        events: list[str] = []
+
+        def left(code: Any, offset: int, destination: int) -> None:
+            if code is access.__code__:
+                events.append("left")
+
+        def right(code: Any, offset: int, destination: int) -> None:
+            if code is access.__code__:
+                events.append("right")
+
+        monitoring.use_tool_id(tool, "none-aware-test")
+        try:
+            monitoring.register_callback(
+                tool, monitoring.events.BRANCH_LEFT, left
+            )
+            monitoring.register_callback(
+                tool, monitoring.events.BRANCH_RIGHT, right
+            )
+            monitoring.set_local_events(
+                tool,
+                access.__code__,
+                monitoring.events.BRANCH_LEFT | monitoring.events.BRANCH_RIGHT,
+            )
+            for value, expected, branches in (
+                (None, None, ["right"]),
+                (SimpleNamespace(profile=None), None, ["left", "right"]),
+                (
+                    SimpleNamespace(profile=SimpleNamespace(name="Ada")),
+                    "Ada",
+                    ["left", "left"],
+                ),
+            ):
+                events.clear()
+                self.assertEqual(access(value), expected)
+                self.assertEqual(events, branches)
+        finally:
+            monitoring.set_local_events(tool, access.__code__, 0)
+            monitoring.register_callback(
+                tool, monitoring.events.BRANCH_LEFT, None
+            )
+            monitoring.register_callback(
+                tool, monitoring.events.BRANCH_RIGHT, None
+            )
+            monitoring.free_tool_id(tool)
+        self.assertEqual(
+            access(SimpleNamespace(profile=SimpleNamespace(name="Ada"))), "Ada"
         )
-        for value, expected in (
-            (None, None),
-            (SimpleNamespace(name="Ada"), "Ada"),
-        ):
-            self.assertEqual(access(*([None] * 16), value), expected)
+
+    def test_long_chain_jump_arguments(self) -> None:
+        namespace: dict[str, Any] = {"Any": Any}
+        expression = "value" + "?.next" * 40 + "?.name"
+        exec(
+            f"def access(value: Any) -> Any:\n    return {expression}\n",
+            namespace,
+        )
+        access = namespace["access"]
+        checks = [
+            i
+            for i in dis.get_instructions(access)
+            if i.opname == "JUMP_IF_NONE"
+        ]
+        self.assertEqual(len(checks), 41)
+        self.assertGreater(checks[0].arg, 255)
+        self.assertIsNone(access(None))
+        value = SimpleNamespace(name="Ada")
+        for _ in range(40):
+            value = SimpleNamespace(next=value)
+        self.assertEqual(access(value), "Ada")
+
+    @unittest.skipUnless(sys._jit.is_enabled(), "requires tier-two execution")
+    def test_tier_two_mixed_chains(self) -> None:
+        namespace: dict[str, Any] = {"Any": Any}
+        exec(
+            "def count(values: tuple[Any, ...], repetitions: int) -> int:\n"
+            "    total = 0\n"
+            "    for _ in range(repetitions):\n"
+            "        for value in values:\n"
+            "            total += value?.profile?.name is not None\n"
+            "    return total\n",
+            namespace,
+        )
+        count = namespace["count"]
+        values = (
+            None,
+            SimpleNamespace(profile=None),
+            SimpleNamespace(profile=SimpleNamespace(name="Ada")),
+        )
+        self.assertEqual(count(values, 10_000), 10_000)
+        executors = []
+        for offset in range(0, len(count.__code__.co_code), 2):
+            try:
+                executors.append(_opcode.get_executor(count.__code__, offset))
+            except ValueError:
+                pass
+        self.assertTrue(executors)
+        opnames = {
+            instruction[0]
+            for executor in executors
+            for instruction in executor
+        }
+        self.assertTrue(
+            {"_GUARD_IS_NONE_KEEP", "_GUARD_IS_NOT_NONE_KEEP"} & opnames
+        )
+        self.assertEqual(count(values, 100), 100)
 
     def test_local_access_in_expression_and_chain(self) -> None:
         namespace: dict[str, Any] = {"Any": Any}

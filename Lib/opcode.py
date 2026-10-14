@@ -122,6 +122,12 @@ _cache_format = frozendict(
     POP_JUMP_IF_NONE=frozendict(
         counter=1,
     ),
+    JUMP_IF_NONE=frozendict(
+        counter=1,
+    ),
+    JUMP_IF_NOT_NONE=frozendict(
+        counter=1,
+    ),
     POP_JUMP_IF_NOT_NONE=frozendict(
         counter=1,
     ),

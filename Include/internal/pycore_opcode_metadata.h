@@ -260,6 +260,10 @@ int _PyOpcode_num_popped(int opcode, int oparg)  {
             return 0;
         case INSTRUMENTED_JUMP_FORWARD:
             return 0;
+        case INSTRUMENTED_JUMP_IF_NONE:
+            return 1;
+        case INSTRUMENTED_JUMP_IF_NOT_NONE:
+            return 1;
         case INSTRUMENTED_LINE:
             return 0;
         case INSTRUMENTED_LOAD_SUPER_ATTR:
@@ -299,6 +303,10 @@ int _PyOpcode_num_popped(int opcode, int oparg)  {
         case JUMP_FORWARD:
             return 0;
         case JUMP_IF_FALSE:
+            return 1;
+        case JUMP_IF_NONE:
+            return 1;
+        case JUMP_IF_NOT_NONE:
             return 1;
         case JUMP_IF_TRUE:
             return 1;
@@ -761,6 +769,10 @@ int _PyOpcode_num_pushed(int opcode, int oparg)  {
             return 0;
         case INSTRUMENTED_JUMP_FORWARD:
             return 0;
+        case INSTRUMENTED_JUMP_IF_NONE:
+            return 1;
+        case INSTRUMENTED_JUMP_IF_NOT_NONE:
+            return 1;
         case INSTRUMENTED_LINE:
             return 0;
         case INSTRUMENTED_LOAD_SUPER_ATTR:
@@ -800,6 +812,10 @@ int _PyOpcode_num_pushed(int opcode, int oparg)  {
         case JUMP_FORWARD:
             return 0;
         case JUMP_IF_FALSE:
+            return 1;
+        case JUMP_IF_NONE:
+            return 1;
+        case JUMP_IF_NOT_NONE:
             return 1;
         case JUMP_IF_TRUE:
             return 1;
@@ -1223,6 +1239,8 @@ const struct opcode_metadata _PyOpcode_opcode_metadata[267] = {
     [INSTRUMENTED_INSTRUCTION] = { true, INSTR_FMT_IX, HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [INSTRUMENTED_JUMP_BACKWARD] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG | HAS_EVAL_BREAK_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [INSTRUMENTED_JUMP_FORWARD] = { true, INSTR_FMT_IB, HAS_ARG_FLAG },
+    [INSTRUMENTED_JUMP_IF_NONE] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG },
+    [INSTRUMENTED_JUMP_IF_NOT_NONE] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG },
     [INSTRUMENTED_LINE] = { true, INSTR_FMT_IX, HAS_ESCAPES_FLAG | HAS_SYNC_SP_FLAG },
     [INSTRUMENTED_LOAD_SUPER_ATTR] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG | HAS_NAME_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [INSTRUMENTED_NOT_TAKEN] = { true, INSTR_FMT_IX, 0 },
@@ -1241,6 +1259,8 @@ const struct opcode_metadata _PyOpcode_opcode_metadata[267] = {
     [JUMP_BACKWARD_NO_INTERRUPT] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_JUMP_FLAG },
     [JUMP_BACKWARD_NO_JIT] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG | HAS_JUMP_FLAG | HAS_EVAL_BREAK_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
     [JUMP_FORWARD] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_JUMP_FLAG },
+    [JUMP_IF_NONE] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG | HAS_JUMP_FLAG },
+    [JUMP_IF_NOT_NONE] = { true, INSTR_FMT_IBC, HAS_ARG_FLAG | HAS_JUMP_FLAG },
     [LIST_APPEND] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_ERROR_FLAG },
     [LIST_EXTEND] = { true, INSTR_FMT_IB, HAS_ARG_FLAG | HAS_ERROR_FLAG | HAS_ERROR_NO_POP_FLAG | HAS_ESCAPES_FLAG },
     [LOAD_ATTR] = { true, INSTR_FMT_IBC00000000, HAS_ARG_FLAG | HAS_NAME_FLAG | HAS_ERROR_FLAG | HAS_ESCAPES_FLAG },
@@ -1467,6 +1487,8 @@ _PyOpcode_macro_expansion[256] = {
     [JUMP_BACKWARD] = { .nuops = 2, .uops = { { _CHECK_PERIODIC, OPARG_SIMPLE, 1 }, { _JUMP_BACKWARD_NO_INTERRUPT, OPARG_REPLACED, 1 } } },
     [JUMP_BACKWARD_NO_INTERRUPT] = { .nuops = 1, .uops = { { _JUMP_BACKWARD_NO_INTERRUPT, OPARG_REPLACED, 0 } } },
     [JUMP_BACKWARD_NO_JIT] = { .nuops = 2, .uops = { { _CHECK_PERIODIC, OPARG_SIMPLE, 1 }, { _JUMP_BACKWARD_NO_INTERRUPT, OPARG_REPLACED, 1 } } },
+    [JUMP_IF_NONE] = { .nuops = 2, .uops = { { _IS_NONE_KEEP, OPARG_SIMPLE, 1 }, { _POP_JUMP_IF_TRUE, OPARG_REPLACED, 1 } } },
+    [JUMP_IF_NOT_NONE] = { .nuops = 2, .uops = { { _IS_NONE_KEEP, OPARG_SIMPLE, 1 }, { _POP_JUMP_IF_FALSE, OPARG_REPLACED, 1 } } },
     [LIST_APPEND] = { .nuops = 1, .uops = { { _LIST_APPEND, OPARG_SIMPLE, 0 } } },
     [LIST_EXTEND] = { .nuops = 2, .uops = { { _LIST_EXTEND, OPARG_SIMPLE, 0 }, { _POP_TOP, OPARG_SIMPLE, 0 } } },
     [LOAD_ATTR] = { .nuops = 1, .uops = { { _LOAD_ATTR, OPARG_SIMPLE, 8 } } },
@@ -1682,6 +1704,8 @@ const char *_PyOpcode_OpName[267] = {
     [INSTRUMENTED_INSTRUCTION] = "INSTRUMENTED_INSTRUCTION",
     [INSTRUMENTED_JUMP_BACKWARD] = "INSTRUMENTED_JUMP_BACKWARD",
     [INSTRUMENTED_JUMP_FORWARD] = "INSTRUMENTED_JUMP_FORWARD",
+    [INSTRUMENTED_JUMP_IF_NONE] = "INSTRUMENTED_JUMP_IF_NONE",
+    [INSTRUMENTED_JUMP_IF_NOT_NONE] = "INSTRUMENTED_JUMP_IF_NOT_NONE",
     [INSTRUMENTED_LINE] = "INSTRUMENTED_LINE",
     [INSTRUMENTED_LOAD_SUPER_ATTR] = "INSTRUMENTED_LOAD_SUPER_ATTR",
     [INSTRUMENTED_NOT_TAKEN] = "INSTRUMENTED_NOT_TAKEN",
@@ -1702,6 +1726,8 @@ const char *_PyOpcode_OpName[267] = {
     [JUMP_BACKWARD_NO_JIT] = "JUMP_BACKWARD_NO_JIT",
     [JUMP_FORWARD] = "JUMP_FORWARD",
     [JUMP_IF_FALSE] = "JUMP_IF_FALSE",
+    [JUMP_IF_NONE] = "JUMP_IF_NONE",
+    [JUMP_IF_NOT_NONE] = "JUMP_IF_NOT_NONE",
     [JUMP_IF_TRUE] = "JUMP_IF_TRUE",
     [JUMP_NO_INTERRUPT] = "JUMP_NO_INTERRUPT",
     [LIST_APPEND] = "LIST_APPEND",
@@ -1838,6 +1864,8 @@ const uint8_t _PyOpcode_Caches[256] = {
     [POP_JUMP_IF_FALSE] = 1,
     [POP_JUMP_IF_NONE] = 1,
     [POP_JUMP_IF_NOT_NONE] = 1,
+    [JUMP_IF_NONE] = 1,
+    [JUMP_IF_NOT_NONE] = 1,
     [GET_ITER] = 1,
     [CALL] = 3,
     [CALL_KW] = 3,
@@ -1849,8 +1877,6 @@ const uint8_t _PyOpcode_Caches[256] = {
 PyAPI_DATA(const uint8_t) _PyOpcode_Deopt[256];
 #ifdef NEED_OPCODE_METADATA
 const uint8_t _PyOpcode_Deopt[256] = {
-    [120] = 120,
-    [121] = 121,
     [122] = 122,
     [123] = 123,
     [124] = 124,
@@ -1869,8 +1895,6 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [228] = 228,
     [229] = 229,
     [230] = 230,
-    [231] = 231,
-    [232] = 232,
     [BINARY_OP] = BINARY_OP,
     [BINARY_OP_ADD_FLOAT] = BINARY_OP,
     [BINARY_OP_ADD_INT] = BINARY_OP,
@@ -1982,6 +2006,8 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [INSTRUMENTED_INSTRUCTION] = INSTRUMENTED_INSTRUCTION,
     [INSTRUMENTED_JUMP_BACKWARD] = INSTRUMENTED_JUMP_BACKWARD,
     [INSTRUMENTED_JUMP_FORWARD] = INSTRUMENTED_JUMP_FORWARD,
+    [INSTRUMENTED_JUMP_IF_NONE] = INSTRUMENTED_JUMP_IF_NONE,
+    [INSTRUMENTED_JUMP_IF_NOT_NONE] = INSTRUMENTED_JUMP_IF_NOT_NONE,
     [INSTRUMENTED_LINE] = INSTRUMENTED_LINE,
     [INSTRUMENTED_LOAD_SUPER_ATTR] = INSTRUMENTED_LOAD_SUPER_ATTR,
     [INSTRUMENTED_NOT_TAKEN] = INSTRUMENTED_NOT_TAKEN,
@@ -2000,6 +2026,8 @@ const uint8_t _PyOpcode_Deopt[256] = {
     [JUMP_BACKWARD_NO_INTERRUPT] = JUMP_BACKWARD_NO_INTERRUPT,
     [JUMP_BACKWARD_NO_JIT] = JUMP_BACKWARD,
     [JUMP_FORWARD] = JUMP_FORWARD,
+    [JUMP_IF_NONE] = JUMP_IF_NONE,
+    [JUMP_IF_NOT_NONE] = JUMP_IF_NOT_NONE,
     [LIST_APPEND] = LIST_APPEND,
     [LIST_EXTEND] = LIST_EXTEND,
     [LOAD_ATTR] = LOAD_ATTR,
@@ -2110,8 +2138,6 @@ const uint8_t _PyOpcode_Deopt[256] = {
 #endif // NEED_OPCODE_METADATA
 
 #define EXTRA_CASES \
-    case 120: \
-    case 121: \
     case 122: \
     case 123: \
     case 124: \
@@ -2130,8 +2156,6 @@ const uint8_t _PyOpcode_Deopt[256] = {
     case 228: \
     case 229: \
     case 230: \
-    case 231: \
-    case 232: \
         ;
 struct pseudo_targets {
     uint8_t as_sequence;

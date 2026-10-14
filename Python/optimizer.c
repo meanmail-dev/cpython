@@ -909,6 +909,8 @@ _PyJit_translate_single_bytecode_to_trace(
     }
 
     switch (opcode) {
+        case JUMP_IF_NONE:
+        case JUMP_IF_NOT_NONE:
         case POP_JUMP_IF_NONE:
         case POP_JUMP_IF_NOT_NONE:
         case POP_JUMP_IF_FALSE:
@@ -920,7 +922,14 @@ _PyJit_translate_single_bytecode_to_trace(
             assert(next_instr == computed_next_instr || next_instr == computed_jump_instr);
             int jump_happened = target_instr[1].cache & 1;
             assert(jump_happened ? (next_instr == computed_jump_instr) : (next_instr == computed_next_instr));
-            uint32_t uopcode = BRANCH_TO_GUARD[opcode - POP_JUMP_IF_FALSE][jump_happened];
+            uint32_t uopcode;
+            if (opcode == JUMP_IF_NONE || opcode == JUMP_IF_NOT_NONE) {
+                bool is_none = jump_happened == (opcode == JUMP_IF_NONE);
+                uopcode = is_none ? _GUARD_IS_NONE_KEEP : _GUARD_IS_NOT_NONE_KEEP;
+            }
+            else {
+                uopcode = BRANCH_TO_GUARD[opcode - POP_JUMP_IF_FALSE][jump_happened];
+            }
             ADD_TO_TRACE(uopcode, 0, 0, INSTR_IP(jump_happened ? computed_next_instr : computed_jump_instr, old_code));
             int bp = compute_branch_penalty(target_instr[1].cache);
             tracer->translator_state.fitness -= bp;

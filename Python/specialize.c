@@ -97,6 +97,8 @@ _PyCode_Quicken(_Py_CODEUNIT *instructions, Py_ssize_t size, int enable_counters
                     break;
                 case POP_JUMP_IF_FALSE:
                 case POP_JUMP_IF_TRUE:
+                case JUMP_IF_NONE:
+                case JUMP_IF_NOT_NONE:
                 case POP_JUMP_IF_NONE:
                 case POP_JUMP_IF_NOT_NONE:
                     instructions[i + 1].cache = 0x5555;  // Alternating 0, 1 bits
